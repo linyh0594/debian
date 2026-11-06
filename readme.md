@@ -39,7 +39,7 @@
 | 文件 | 说明 |
 | --- | --- |
 | tboard-debian11-rootfs.img | 最终 rootfs 镜像（烧写用） |
-| linaro-rootfs.img | mk-image.sh 中间产物，每次构建重新生成 |
+| ../output/debian/images/rootfs.ext4 | SDK 构建生成的镜像链接，指向 tboard-debian11-rootfs.img |
 | linaro-bullseye-alip-*.tar.gz | linaro 底包，保留可避免重新下载 |
 
 ## 默认账号
