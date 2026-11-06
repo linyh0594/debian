@@ -1,8 +1,9 @@
 #!/bin/bash -e
 
 TARGET_ROOTFS_DIR=./binary
-ROOTFSIMAGE=linaro-rootfs.img
+ROOTFSIMAGE=tboard-debian11-rootfs.img
 
+./check-resources.sh
 
 echo Making rootfs!
 

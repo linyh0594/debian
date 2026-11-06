@@ -12,6 +12,14 @@ case "${ARCH:-$1}" in
 		;;
 esac
 
+ARCH="$ARCH" ./check-resources.sh
+
+# Also required by the SDK host checks; fail before extracting on direct use.
+command -v rsync >/dev/null || {
+	echo "Missing host rsync; install it with: sudo apt-get install rsync" >&2
+	exit 1
+}
+
 echo -e "\033[36m Building for $ARCH \033[0m"
 
 if [ ! $VERSION ]; then
@@ -33,15 +41,16 @@ sudo mkdir -p $TARGET_ROOTFS_DIR/packages
 sudo cp -rpf packages/$ARCH/* $TARGET_ROOTFS_DIR/packages
 
 # overlay folder
-sudo cp -rpf overlay/* $TARGET_ROOTFS_DIR/
+# Keep merged-/usr links such as lib -> usr/lib while merging overlay contents.
+sudo rsync -a --keep-dirlinks overlay/ "$TARGET_ROOTFS_DIR/"
 
 # overlay-firmware folder
-sudo cp -rpf overlay-firmware/* $TARGET_ROOTFS_DIR/
+sudo rsync -a --keep-dirlinks overlay-firmware/ "$TARGET_ROOTFS_DIR/"
 
 # overlay-debug folder
 # adb, video, camera  test file
 if [ "$VERSION" == "debug" ]; then
-	sudo cp -rpf overlay-debug/* $TARGET_ROOTFS_DIR/
+	sudo rsync -a --keep-dirlinks overlay-debug/ "$TARGET_ROOTFS_DIR/"
 fi
 
 echo -e "\033[36m Change root.....................\033[0m"
@@ -52,7 +61,7 @@ cat << EOF | sudo chroot $TARGET_ROOTFS_DIR
 
 # Fixup owners
 if [ "$ID" -ne 0 ]; then
-       find / -user $ID -exec chown -h 0:0 {} \;
+       find / -xdev -user $ID -exec chown -h 0:0 {} \;
 fi
 for u in \$(ls /home/); do
 	chown -h -R \$u:\$u /home/\$u
@@ -69,6 +78,12 @@ apt-get update
 apt-get upgrade -y
 
 export APT_INSTALL="apt-get install -fy --allow-downgrades"
+
+# AIC UART initialization uses Python's standard library and the BlueZ daemon.
+\${APT_INSTALL} python3 bluez || exit 1
+
+# Account post-processing needs sudo; SSH provides password login.
+\${APT_INSTALL} sudo openssh-server || exit 1
 
 # Keep systemd's serial login prompt; SDK post-processing installs the accounts.
 
@@ -136,9 +151,8 @@ echo -e "\033[36m Install blueman.................... \033[0m"
 \${APT_INSTALL} /packages/blueman/*.deb
 
 #------------------rkwifibt------------
-echo -e "\033[36m Install rkwifibt.................... \033[0m"
-\${APT_INSTALL} /packages/rkwifibt/*.deb
-ln -s /system/etc/firmware /vendor/etc/
+# AIC8800 initialization and firmware are installed by the SDK post-rootfs
+# hook from debian/bsp and debian/overlay-firmware, after firmware cleanup.
 
 if [ "$VERSION" == "debug" ]; then
 #------------------glmark2------------
